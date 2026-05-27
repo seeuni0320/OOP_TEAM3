@@ -1,9 +1,9 @@
 # OOP_TEAM3
-##스터디카페 무인 키오스크 구현
-###Flowchart
+## 스터디카페 무인 키오스크 구현
+### Flowchart
 <img width="396" height="553" alt="카페키오스크_흐름도 " src="https://github.com/user-attachments/assets/401451da-d650-427d-b03f-328db0c0aaa5" />
 
-###전체 Framework
+### 전체 Framework
 Model(박세은)
   Seat: 좌석 번호, 현재 이용 여부(true/false), 남은 시간(분) 저장 및 차감 기능 제공.
   User: 회원 아이디, 이름, 현재 이용 중인 좌석 번호 관리.
