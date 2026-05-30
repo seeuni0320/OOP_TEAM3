@@ -67,7 +67,7 @@ public class User {
         return remainingDays;
     }
    //기간권추가
-    public synchronized void addRemaningDays(int days) {
+    public synchronized void addRemainingDays(int days) {
         this.remainingDays += days;
         this.hasActiveTicket = true;
         this.activeTicketType = "Period";
