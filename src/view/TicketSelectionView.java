@@ -1,50 +1,46 @@
+package view;
+
+import controller.TicketController;
+import model.Ticket;
 import javax.swing.*;
 import java.awt.*;
+import java.util.List;
 
 public class TicketSelectionView extends JFrame {
-    private MainMenuView mainView;
-    private String phoneNumber;
-    private boolean isMember;
-
-    public TicketSelectionView(MainMenuView mainView, String phoneNumber, boolean isMember) {
-        this.mainView = mainView;
-        this.phoneNumber = phoneNumber;
-        this.isMember = isMember;
-
-        setTitle("이용권 조회 및 선택");
-        setSize(400, 400);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    //  isOwnedMode가 true면 [보유 조회창], false면 [신규 구매 메뉴판]으로 갑니다
+    public TicketSelectionView(TicketController ticketController, List<Ticket> tickets, boolean isOwnedMode) {
+        setTitle(isOwnedMode ? "보유 이용권 조회" : "신규 이용권 구매");
+        setSize(300, 350);
         setLocationRelativeTo(null);
-        setLayout(new BorderLayout());
+        
+        // 버튼 개수(+ 조회 모드일 땐 추가 구매 버튼용 1칸)만큼 세로 레이아웃 설정
+        setLayout(new GridLayout(tickets.size() + (isOwnedMode ? 1 : 0), 1, 5, 5)); 
 
-        JLabel infoLabel = new JLabel("<html><center>입력된 번호: " + phoneNumber + "<br>" + 
-                (isMember ? "[회원 모드] 보유 이용권을 조회합니다." : "[비회원 모드] 이용권을 구매해야 합니다.") + "</center></html>", SwingConstants.CENTER);
-        add(infoLabel, BorderLayout.NORTH);
+        // 넘겨받은 티켓 목록을 돌면서 버튼을 자동으로 생성합니다.
+        for (Ticket ticket : tickets) {
+            JButton btn = new JButton(ticket.getTicketName() + " (" + ticket.getPrice() + "원)");
+            
+            btn.addActionListener(e -> {
+                if (isOwnedMode) {
+                    // 이미 가진 티켓을 선택함 -> 좌석 선택하러 이동하라고 컨트롤러에 전달! ticketController
+                    ticketController.selectOwnedTicket(ticket);
+                } else {
+                    // 새로 살 티켓을 선택함 -> 결제창(PaymentView) 띄우라고 컨트롤러에 전달!
+                    ticketController.selectTicketToPurchase(ticket);
+                }
+            });
+            add(btn);
+        }
 
-        // 이용권 선택 버튼들 생성
-        JPanel ticketPanel = new JPanel(new GridLayout(3, 1, 10, 10));
-        JButton ticket1 = new JButton("당일권 2시간 (3,000원)");
-        JButton ticket2 = new JButton("당일권 4시간 (5,000원)");
-        JButton homeButton = new JButton("처음으로 돌아가기");
-        homeButton.setBackground(Color.LIGHT_GRAY);
-
-        // 처음으로 돌아가기 누르면 모든 창 닫고 메인메뉴 다시 켜기
-        homeButton.addActionListener(e -> {
-            setVisible(false);
-            mainView.setVisible(true);
-        });
-
-        // 이용권 버튼 누르면 다음 창으로 가야하지만 일단 안내 메시지만 뜨게 처리
-        ticket1.addActionListener(e -> {
-    setVisible(false); // 이용권 선택창 숨기고
-    new PaymentView(mainView, "당일권 2시간").setVisible(true); // ④ 결제창 열기!
-});
-        ticket2.addActionListener(e -> JOptionPane.showMessageDialog(this, "결제 및 좌석 선택창으로 넘어가는 로직이 필요합니다."));
-
-        ticketPanel.add(ticket1);
-        ticketPanel.add(ticket2);
-        ticketPanel.add(homeButton);
-
-        add(ticketPanel, BorderLayout.CENTER);
+        // 보유 이용권 조회 모드일 때만 맨 밑에 '추가 구매' (회원이긴한데 이용권이 없을 경우)
+        if (isOwnedMode) {
+            JButton moreBtn = new JButton("이용권 추가 구매");
+            moreBtn.setFont(new Font("맑은 고딕", Font.BOLD, 12));
+            moreBtn.addActionListener(e -> { 
+                setVisible(false); 
+                ticketController.showPurchase(); // 구매 메뉴판 켜달라고 컨트롤러에 요청
+            });
+            add(moreBtn);
+        }
     }
 }
