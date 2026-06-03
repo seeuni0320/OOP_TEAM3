@@ -17,38 +17,3 @@ public class Ticket {
         return price;
     }
 }
-
-
-//시간권
-class TimeTicket extends Ticket {
-    private int addHours;
-    private int addMinutes;
-
-    public TimeTicket(String ticketName, int price, int addHours, int addMinutes) {
-        super(ticketName, price);
-        this.addHours = addHours;
-        this.addMinutes = addMinutes;
-    }
-
-    public int getAddHours() {
-        return addHours;
-    }
-
-    public int getAddMinutes() {
-        return addMinutes;
-    }
-}
-
-//기간권
-class PeriodTicket extends Ticket {
-    private int addDays;
-
-    public PeriodTicket(String ticketName, int price, int addDays) {
-        super(ticketName, price);
-        this.addDays = addDays;
-    }
-
-    public int getAddDays() {
-        return addDays;
-    }
-}
