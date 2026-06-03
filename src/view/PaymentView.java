@@ -38,7 +38,7 @@ public class PaymentView extends JFrame {
         payBtn.setFont(new Font("맑은 고딕", Font.BOLD, 13));
         
         payBtn.addActionListener(e -> {
-            // 텍스트 필드 없이 원래 티켓 가격을 컨트롤러에 바로 토스!
+            //  티켓 가격을 컨트롤러에 바로 토스!
             paymentController.pay(ticket, ticket.getPrice()); //여기서 paymentController로 넘어갑니당 
         });
         
