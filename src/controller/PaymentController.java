@@ -1,15 +1,23 @@
-package studycafe.controller;
+package controller;
 
-import studycafe.model.StudyCafeRepository;
-import studycafe.model.Ticket;
-import studycafe.model.User;
-import studycafe.view.ViewNavigator;
+import model.PeriodTicket;
+import model.StudyCafeRepository;
+import model.Ticket;
+import model.TimeTicket;
+import model.User;
+import view.ViewNavigator;
 
 /**
  * PaymentController
- * - 결제 버튼 클릭 시 금액을 검증하고,
- *   StudyCafeRepository를 통해 매출 데이터를 갱신한다.
+ * - 결제 금액을 검증하고, 구매한 이용권의 시간을 회원 계정에 적립한다.
  * - 결제가 끝나면 좌석 선택 단계로 보낸다.
+ *
+ * [모델 적응 메모]
+ * - 시간은 좌석이 아니라 회원(User)에 누적되는 구조 → TimeTicket이면 addRemainingHours,
+ *   PeriodTicket이면 addRemainingDays 로 적립.
+ * - 저장은 모델의 통합 메서드 saveData() 사용(saveUsers/saveSeats가 모델에 없음).
+ * - (모델 User에 '분' 단위 잔여가 없어 TimeTicket의 addMinutes는 현재 반영되지 않음.
+ *    분 단위가 필요하면 모델 쪽 확장이 필요합니다.)
  */
 public class PaymentController {
 
@@ -46,14 +54,15 @@ public class PaymentController {
 
         int change = paidAmount - ticket.getPrice();
 
-        // 매출 데이터 갱신 (Repository가 파일/누적값 처리)
-        repository.recordSale(ticket.getPrice());
-
-        // 회원이면 구매한 이용권을 계정에 적립
+        // 구매한 이용권 시간을 회원 계정에 적립
         User user = session.getUser();
-        if (user != null && !session.isGuest()) {
-            user.addTicket(ticket);
-            repository.saveUsers();
+        if (user != null) {
+            if (ticket instanceof TimeTicket) {
+                user.addRemainingHours(((TimeTicket) ticket).getAddHours());
+            } else if (ticket instanceof PeriodTicket) {
+                user.addRemainingDays(((PeriodTicket) ticket).getAddDays());
+            }
+            repository.saveData(); // 회원/좌석 정보를 한 번에 저장
         }
 
         session.setSelectedTicket(ticket);

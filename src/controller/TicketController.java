@@ -1,16 +1,23 @@
-package studycafe.controller;
+package controller;
 
-import studycafe.model.Ticket;
-import studycafe.model.User;
-import studycafe.view.ViewNavigator;
+import model.PeriodTicket;
+import model.Ticket;
+import model.TimeTicket;
+import model.User;
+import view.ViewNavigator;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * TicketController
- * - 회원이 사용 가능한 이용권을 보유하고 있으면 결제를 생략하고 좌석 선택으로 보낸다.
- * - 보유 이용권이 없거나 비회원이면 이용권 구매창을 표시한다.
+ * - 회원이 사용 가능한 잔여 시간이 있으면 결제를 생략하고 좌석 선택으로 보낸다.
+ * - 잔여가 없거나 비회원이면 이용권 구매창을 표시한다.
+ *
+ * [모델 적응 메모]
+ * - 모델 User는 Ticket 리스트를 보관하지 않고 remainingHours/remainingDays로 잔여를 관리한다.
+ *   따라서 "보유 이용권 조회"는 잔여 시간/일수를 표시용 Ticket으로 합성해서 보여준다.
+ * - 카탈로그를 TimeTicket/PeriodTicket으로 생성하여 PaymentView의 instanceof 분기가 동작하도록 했다.
  */
 public class TicketController {
 
@@ -29,26 +36,24 @@ public class TicketController {
         this.paymentController = paymentController;
     }
 
-    /** 회원 로그인 직후 호출: 보유 이용권 유무에 따라 분기 */
+    /** 회원 로그인 직후 호출: 잔여 이용권 유무에 따라 분기 */
     public void handleMemberLogin(User user) {
-        List<Ticket> usable = user.getUsableTickets();
-        if (!usable.isEmpty()) {
-            // 있음 → 보유 이용권 조회 및 선택 화면
-            navigator.showOwnedTickets(usable);
+        List<Ticket> owned = getOwnedTickets(user);
+        if (!owned.isEmpty()) {
+            navigator.showOwnedTickets(owned); // 있음 → 보유 이용권 조회 화면
         } else {
-            // 없음 → 이용권 구매창
-            showPurchase();
+            showPurchase();                    // 없음 → 이용권 구매창
         }
     }
 
-    /** 이용권 구매창 표시 (비회원, 또는 보유 이용권 없는 회원) */
+    /** 이용권 구매창 표시 (비회원, 또는 잔여 없는 회원) */
     public void showPurchase() {
         navigator.showTicketPurchase(getTicketCatalog());
     }
 
     /** 보유 이용권을 선택한 경우: 결제 생략 → 좌석 선택으로 */
     public void selectOwnedTicket(Ticket ticket) {
-        if (ticket == null || ticket.isUsed()) {
+        if (ticket == null) {
             navigator.showPopup("사용할 수 없는 이용권입니다.");
             return;
         }
@@ -67,15 +72,32 @@ public class TicketController {
     }
 
     /**
+     * 회원이 현재 보유 중인 잔여를 표시용 Ticket 목록으로 합성한다.
+     * (모델 User에 잔여 Ticket 리스트가 없으므로 remainingHours/Days를 기반으로 생성)
+     */
+    private List<Ticket> getOwnedTickets(User user) {
+        List<Ticket> list = new ArrayList<>();
+        if (user.getRemainingHours() > 0) {
+            list.add(new Ticket("시간권 (잔여 " + user.getRemainingHours() + "시간)", 0));
+        }
+        if (user.getRemainingDays() > 0) {
+            list.add(new Ticket("정기권 (잔여 " + user.getRemainingDays() + "일)", 0));
+        }
+        return list;
+    }
+
+    /**
      * 판매 중인 이용권 목록.
-     * 구매할 때마다 새 인스턴스가 발급되도록 매번 새로 생성한다.
-     * (가격/종류는 기획에 맞게 수정)
+     * TimeTicket(name, price, addHours, addMinutes) / PeriodTicket(name, price, addDays)
+     * 정기권(기간권)은 회원만 구매 가능 → 비회원에게는 제외한다.
      */
     private List<Ticket> getTicketCatalog() {
         List<Ticket> catalog = new ArrayList<>();
-        catalog.add(new Ticket("2시간권", 120, 4000));
-        catalog.add(new Ticket("4시간권", 240, 7000));
-        catalog.add(new Ticket("정기권(30일)", 60 * 24 * 30, 99000));
+        catalog.add(new TimeTicket("2시간권", 4000, 2, 0));
+        catalog.add(new TimeTicket("4시간권", 7000, 4, 0));
+        if (!session.isGuest()) {
+            catalog.add(new PeriodTicket("정기권(30일)", 99000, 30));
+        }
         return catalog;
     }
 }
