@@ -19,7 +19,7 @@ public class StudyCafeRepository {
         loadData(); // 파일에서 데이터 읽어오기
     }
 
-    // 데이터 조회 및 제공 메서드 
+    // 데이터 조회 및 제공 메서 
 
     public HashMap<String, User> getUserMap() {
         return userMap;
@@ -96,8 +96,8 @@ public class StudyCafeRepository {
                 System.out.println("좌석 정보 파일 로드 중 오류 발생: " + e.getMessage());
             }
         } else {
-            // 만약 seats.txt 파일이 아예 없다면 기본 좌석 20개를 강제로 생성
-            for (int i = 1; i <= 20; i++) {
+            // 만약 seats.txt 파일이 아예 없다면 기본 좌석 16개를 강제로 생성
+            for (int i = 1; i <= 16; i++) {
                 seatList.add(new Seat(i));
             }
         }
