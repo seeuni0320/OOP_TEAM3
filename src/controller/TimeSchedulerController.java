@@ -5,6 +5,8 @@ import model.StudyCafeRepository;
 import model.User;
 import view.ViewNavigator;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -22,9 +24,13 @@ import java.util.concurrent.TimeUnit;
  *   데모 시에는 아래 TICK_UNIT을 SECONDS 등으로 바꿔 빠르게 확인할 수 있다.
  * - 정기권(Period)은 일 단위라 세션 중 자동 차감/퇴실하지 않는다.
  *
- * [동시성] SeatController와 동일한 seatLock으로 좌석 데이터를 보호한다.
- * UI 갱신은 ViewNavigator 구현체에서 UI 스레드로 처리하는 것이 안전하다
- * (Swing: SwingUtilities.invokeLater).
+ * [동시성 — 수정됨]
+ * - 좌석 데이터 변경(차감/퇴실)만 seatLock 안에서 처리한다.
+ * - UI 호출(refreshSeats, showPopup)은 절대 락 안에서 하지 않는다.
+ *   (예전 코드는 락을 쥔 채 모달 팝업을 띄워, 그 팝업을 처리해야 할 EDT가
+ *    같은 락을 기다리며 멈추는 교착이 발생할 수 있었다.)
+ * - 만료된 좌석 번호만 락 안에서 모아두고, 락을 빠져나온 뒤 팝업을 띄운다.
+ * - UI 스레드 보장은 ViewNavigator 구현체에서 SwingUtilities.invokeLater로 처리한다.
  */
 public class TimeSchedulerController {
 
@@ -61,6 +67,9 @@ public class TimeSchedulerController {
     private void tick() {
         try {
             boolean changed = false;
+            // 만료되어 자동 퇴실된 좌석 번호를 모았다가, 락을 빠져나온 뒤 알림을 띄운다.
+            List<Integer> expiredSeats = new ArrayList<>();
+
             synchronized (seatLock) {
                 for (Seat seat : repository.getSeatList()) {
                     if (!seat.isOccupied()) {
@@ -77,7 +86,9 @@ public class TimeSchedulerController {
                         user.subRemainingHours(HOURS_PER_TICK); // <=0이면 모델이 내부적으로 0/None 처리
                         changed = true;
                         if (user.getRemainingHours() <= 0) {
-                            checkout(seat);
+                            int seatNumber = seat.getSeatNumber();
+                            seat.release(); // 좌석의 사용자 연결(전화번호)도 함께 해제됨
+                            expiredSeats.add(seatNumber);
                         }
                     }
                 }
@@ -85,19 +96,16 @@ public class TimeSchedulerController {
                     repository.saveData();
                 }
             }
-            // 좌석 현황 UI 실시간 갱신
+
+            // ── 여기서부터는 락 바깥. UI만 호출한다(교착 방지). ──
             navigator.refreshSeats(repository.getSeatList());
+            for (int seatNumber : expiredSeats) {
+                navigator.showPopup(seatNumber + "번 좌석 이용 시간이 만료되어 자동 퇴실 처리되었습니다.");
+            }
         } catch (Exception e) {
             // 스케줄러 스레드에서 예외가 전파되면 이후 주기가 멈추므로 반드시 잡는다
             e.printStackTrace();
         }
-    }
-
-    /** 시간이 만료된 좌석 퇴실 처리 */
-    private void checkout(Seat seat) {
-        int seatNumber = seat.getSeatNumber();
-        seat.release(); // 좌석의 사용자 연결(전화번호)도 함께 해제됨
-        navigator.showPopup(seatNumber + "번 좌석 이용 시간이 만료되어 자동 퇴실 처리되었습니다.");
     }
 
     /** 스케줄러 종료 (프로그램 종료 시 호출) */
