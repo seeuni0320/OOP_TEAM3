@@ -5,7 +5,7 @@ public class User {
     private String phoneNumber;
     private boolean hasActiveTicket;
     private String activeTicketType;
-    private int remainingHours;
+    private int remainingMinutes;
     private int remainingDays;
 
     // 신규회원 생성
@@ -13,7 +13,7 @@ public class User {
         this.phoneNumber = phoneNumber;
         this.hasActiveTicket = false;
         this.activeTicketType = "None";
-        this.remainingHours = 0;
+        this.remainingMinutes = 0;
         this.remainingDays = 0;
     }
 
@@ -30,8 +30,8 @@ public class User {
         return activeTicketType;
     }
 
-    public synchronized int getRemainingHours() {
-        return remainingHours;
+    public synchronized int getRemainingMinutes() {
+        return remainingMinutes;
     }
 
     public synchronized int getRemainingDays() {
@@ -48,8 +48,8 @@ public class User {
     }
 
     // [수정 1] Repository 로드용 부수효과 없는 순수 Setter 추가
-    public synchronized void setRemainingHours(int remainingHours) {
-        this.remainingHours = remainingHours;
+    public synchronized void setRemainingMinutes(int remainingMinutes) {
+        this.remainingMinutes = remainingMinutes;
     }
 
     public synchronized void setRemainingDays(int remainingDays) {
@@ -58,10 +58,10 @@ public class User {
 
     // [수정 2] 티켓 상태를 잔여 시간에 따라 자동으로 계산해 주는 메서드
     private void updateTicketState() {
-        if (this.remainingHours > 0 && this.remainingDays > 0) {
+        if (this.remainingMinutes > 0 && this.remainingDays > 0) {
             this.activeTicketType = "Both";
             this.hasActiveTicket = true;
-        } else if (this.remainingHours > 0) {
+        } else if (this.remainingMinutes > 0) {
             this.activeTicketType = "Time";
             this.hasActiveTicket = true;
         } else if (this.remainingDays > 0) {
@@ -75,15 +75,15 @@ public class User {
 
     // [수정 3] add 및 sub 메서드에서 덮어쓰기 대신 updateTicketState() 호출
     // 시간권
-    public synchronized void addRemainingHours(int hours) {
-        this.remainingHours += hours;
+    public synchronized void addRemainingMinutes(int minutes) {
+        this.remainingMinutes += minutes;
         updateTicketState();
     }
 
-    public synchronized void subRemainingHours(int hours) {
-        this.remainingHours -= hours;
-        if (this.remainingHours <= 0) {
-            this.remainingHours = 0;
+    public synchronized void subRemainingMinutes(int minutes) {
+        this.remainingMinutes -= minutes;
+        if (this.remainingMinutes <= 0) {
+            this.remainingMinutes = 0;
         }
         updateTicketState(); // 시간이 0이 되어도 기간권이 남아있으면 안 꺼짐
     }

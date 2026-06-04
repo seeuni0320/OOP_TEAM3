@@ -53,7 +53,7 @@ public class StudyCafeRepository {
                         String phone = data[0];
                         boolean hasTicket = Boolean.parseBoolean(data[1]);
                         String type = data[2];
-                        int hours = Integer.parseInt(data[3]);
+                        int minutes = Integer.parseInt(data[3]);
                         int days = Integer.parseInt(data[4]);
 
                         User user = new User(phone);
@@ -61,7 +61,7 @@ public class StudyCafeRepository {
                         user.setActiveTicketType(type);
                         
                         // [수정 3] add 대신 순수 setter 사용 (부수효과 차단)
-                        user.setRemainingHours(hours);
+                        user.setRemainingMinutes(minutes);
                         user.setRemainingDays(days);
 
                         userMap.put(phone, user);
@@ -123,7 +123,7 @@ public class StudyCafeRepository {
                         user.getPhoneNumber(),
                         user.isHasActiveTicket(),
                         user.getActiveTicketType(),
-                        user.getRemainingHours(),
+                        user.getRemainingMinutes(),
                         user.getRemainingDays());
                 bw.write(line);
                 bw.newLine();
