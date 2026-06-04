@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * [SwingNavigator]
  * 프론트엔드의 총사령관 역할을 하는 클래스입니다.
- * 화면 전환(Navigation)을 통제하고, 백엔드 Controller들과 View를 연결합니다.
+ * 화면 전환(Navigation)을 통제하고, 백엔드 Controller들도 View를 연결합니다.
  */
 
 public class SwingNavigator implements ViewNavigator {
@@ -33,21 +33,49 @@ public class SwingNavigator implements ViewNavigator {
     public SwingNavigator() {
         // 초기화 로직 구조 유지
     }
+    
+    //레포지토리가 외부에서 주입될 때 메인 메뉴가 이미 있다면 레포지토리를 바로 넘겨줍니다.
     public void setRepository(StudyCafeRepository repository) {
-    this.repository = repository;
-}
+        this.repository = repository;
+        if (this.mainMenuView != null) {
+            this.mainMenuView.setRepository(repository);
+        }
+    }
+    
     // [Main 전용] 프로그램 시작 시 백엔드 컨트롤러들을 한 번에 주입받는 메서드
     public void setControllers(LoginController lc, TicketController tc, PaymentController pc, SeatController sc) {
         this.loginController = lc;
         this.ticketController = tc;
         this.paymentController = pc;
         this.seatController = sc;
+        
+        // 컨트롤러 조립 시점에 혹시 메인 메뉴와 레포지토리가 준비되어 있다면 레포지토리 연결 및 데이터 동기화
+        if (this.mainMenuView != null) {
+            if (this.repository != null) {
+                this.mainMenuView.setRepository(this.repository);
+                this.mainMenuView.updateUsageStatus(this.repository.getSeatList());
+            }
+        }
     }
 
-    // 프로그램 최초 실행 시 메인 메뉴를 띄우는 스타트 버튼
+    // 프로그램 최초 실행 및 다른 화면에서 메인 메뉴로 돌아올 때 띄우는 스타트 버튼
     public void showMainMenu() {
-        if (mainMenuView == null) mainMenuView = new MainMenuView(this); 
+        if (mainMenuView == null) {
+            mainMenuView = new MainMenuView(this); 
+        }
+        
+        // 메인 뷰에 실시간 레포지토리 리모컨을 한 번 더 확실하게 주입합니다.
+        if (repository != null) {
+            mainMenuView.setRepository(repository);
+        }
+        
         hideAll();
+        
+        // 사용자가 입실/퇴실 후 메인 화면으로 복귀할 때 실시간 최신 데이터를 긁어와 현황판을 갱신합니다.
+        if (repository != null && repository.getSeatList() != null) {
+            mainMenuView.updateUsageStatus(repository.getSeatList());
+        }
+        
         mainMenuView.setVisible(true);
     }
 
@@ -109,9 +137,18 @@ public class SwingNavigator implements ViewNavigator {
 
     @Override
     public void refreshSeats(Collection<Seat> seats) {
-        // 좌석 화면이 켜져 있는 상태라면, 화면 전체를 껐다 켜지 않고 불빛(데이터)만 실시간 새로고침!
+        // 1. 좌석 화면이 켜져 있는 상태라면, 화면 전체를 껐다 켜지 않고 불빛(데이터)만 실시간 새로고침!
         if (seatSelectionView != null) {
             seatSelectionView.updateSeatButtons(seats); 
+        }
+        
+        // ⚡ 조원들의 백엔드 타이머(TimeSchedulerController)가 작동할 때 메인 화면 현황판도 동시 리프레시 시켜줍니다!
+        if (mainMenuView != null) {
+            // 새로고침할 때도 레포지토리가 유실되지 않도록 주입 상태를 재점검합니다.
+            if (repository != null) {
+                mainMenuView.setRepository(repository);
+            }
+            mainMenuView.updateUsageStatus(seats);
         }
     }
 

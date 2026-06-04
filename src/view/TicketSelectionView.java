@@ -7,7 +7,6 @@ import java.awt.*;
 import java.util.List;
 
 public class TicketSelectionView extends JFrame {
-    // 💡 생성자 매개변수 맨 끝에 SwingNavigator navigator를 추가로 주입받습니다!
     public TicketSelectionView(TicketController ticketController, List<Ticket> tickets, boolean isOwnedMode, SwingNavigator navigator) {
         setTitle(isOwnedMode ? "보유 이용권 조회" : "신규 이용권 구매");
         setSize(300, 400); // 하단 버튼을 위해 세로 크기를 넉넉하게 확장!
@@ -46,9 +45,9 @@ public class TicketSelectionView extends JFrame {
         }
 
         // ================================================================
-        // 🏠 [새로 추가된 메인 화면으로 이동 버튼 구역]
+        // [새로 추가된 메인 화면으로 이동 버튼 구역]
         // ================================================================
-        JButton mainBtn = new JButton("🏠 처음으로 (메인화면)");
+        JButton mainBtn = new JButton("처음으로 (메인화면)");
         mainBtn.setFont(new Font("맑은 고딕", Font.BOLD, 12));
         mainBtn.setBackground(new Color(230, 242, 255)); // 로그인 뷰와 톤앤매너 맞춘 하늘색 톤!
         
@@ -57,12 +56,9 @@ public class TicketSelectionView extends JFrame {
             this.setVisible(false);
             this.dispose();
             
-            // 2. ⚡ [먹통 방지 & 꺼짐 방지 완벽 해결]
-            // 새 창을 파는 게 아니라, 넘겨받은 진짜 원본 총사령관 리모컨을 작동시킵니다!
             if (navigator != null) {
-                navigator.showMainMenu(); // 👈 기존 메인 메뉴 화면을 다시 살아 숨쉬게 깨우기!
+                navigator.showMainMenu(); // 기존 메인 메뉴 화면을 다시 살아 숨쉬게 깨우기!
             } else {
-                // 혹시 모를 단독 테스트용 예외 방어막
                 try {
                     MainMenuView mainFrame = new MainMenuView(null); 
                     mainFrame.setVisible(true);

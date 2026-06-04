@@ -1,97 +1,134 @@
 package view;
 
+import model.Seat;
+import model.User;
+import model.StudyCafeRepository;
 import javax.swing.*;
 import java.awt.*;
 import java.util.Collection;
 
 public class MainMenuView extends JFrame {
-    // 💡 실시간으로 불빛을 바꿔치기할 미니 좌석 버튼 16개 주머니!
-    private final JButton[] miniSeatButtons = new JButton[16];
+    private JPanel seatStatusPanel; 
+    private StudyCafeRepository repository; 
+    
+    private JLabel[] seatLabels = new JLabel[16];
 
-    public MainMenuView(ViewNavigator navigator) { 
-        setTitle("메인 메뉴");
-        // 💡 좌석 배치판과 버튼이 좌우로 나란히 들어가므로 가로 크기를 700으로 시원하게 확장!
-        setSize(700, 420); 
+    public MainMenuView(SwingNavigator navigator) {
+        setTitle("스터디카페 키오스크");
+        setSize(700, 450);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+        setLayout(new BorderLayout(15, 15));
+
+        // 실시간 좌석 현황 바둑판 레이아웃 세팅
+        seatStatusPanel = new JPanel(new GridLayout(4, 4, 8, 8));
+        seatStatusPanel.setBorder(BorderFactory.createTitledBorder("실시간 좌석 현황판"));
+        seatStatusPanel.setPreferredSize(new Dimension(380, 400));
+        add(seatStatusPanel, BorderLayout.WEST);
+
+        //메인 제어 버튼 레이아웃 세팅
+        JPanel menuPanel = new JPanel(new GridLayout(3, 1, 15, 15));
+        menuPanel.setBorder(BorderFactory.createEmptyBorder(20, 10, 20, 20));
+
+        JButton memberBtn = new JButton("회원 로그인 / 등록");
+        JButton guestBtn = new JButton("비회원 이용권 구매");
+        JButton exitBtn = new JButton("퇴실하기 (이용 종료)");
+
+        Font btnFont = new Font("맑은 고딕", Font.BOLD, 15);
+        memberBtn.setFont(btnFont); memberBtn.setBackground(new Color(215, 235, 255));
+        guestBtn.setFont(btnFont); guestBtn.setBackground(new Color(230, 255, 230));
+        exitBtn.setFont(btnFont); exitBtn.setBackground(new Color(255, 220, 220));
+
+        memberBtn.addActionListener(e -> { if(navigator != null) navigator.showLogin(true); });
+        guestBtn.addActionListener(e -> { if(navigator != null) navigator.showLogin(false); });
+        exitBtn.addActionListener(e -> { if(navigator != null) navigator.showLoginForExit(); });
+
+        menuPanel.add(memberBtn);
+        menuPanel.add(guestBtn);
+        menuPanel.add(exitBtn);
+        add(menuPanel, BorderLayout.CENTER);
         
-        // 전체 레이아웃을 좌우로 넓게 배치하기 위해 1행 2열 GridLayout으로 설정합니다.
-        setLayout(new GridLayout(1, 2, 20, 0)); 
-
-        // ================================================================
-        // 🟩 [왼쪽 구역: 미니 좌석 이용 현황판 (4x4)]
-        // ================================================================
-        JPanel leftPanel = new JPanel(new BorderLayout(10, 10));
-        leftPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 10));
-
-        // 상단 타이틀
-        JLabel titleLabel = new JLabel("📊 실시간 좌석 이용 현황", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 15));
-        leftPanel.add(titleLabel, BorderLayout.NORTH);
-
-        // 4x4 바둑판 주머니 생성
-        JPanel miniSeatGrid = new JPanel(new GridLayout(4, 4, 6, 6));
-        for (int i = 0; i < 16; i++) {
-            miniSeatButtons[i] = new JButton();
-            miniSeatButtons[i].setFont(new Font("맑은 고딕", Font.BOLD, 11));
-            miniSeatButtons[i].setEnabled(false); // 💡 메인화면 현황판은 클릭용이 아니라 '뷰어'니까 비활성화!
-            miniSeatGrid.add(miniSeatButtons[i]);
-        }
-        leftPanel.add(miniSeatGrid, BorderLayout.CENTER);
-        
-        add(leftPanel); // 메인 창 왼쪽에 착 장착!
-
-        // ================================================================
-        // 🎛️ [오른쪽 구역: 키오스크 오리지널 메뉴 버튼 3개]
-        // ================================================================
-        JPanel rightPanel = new JPanel(new BorderLayout(10, 10));
-        rightPanel.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 20));
-
-        JLabel menuLabel = new JLabel("원하시는 서비스를 선택하세요", SwingConstants.CENTER);
-        menuLabel.setFont(new Font("맑은 고딕", Font.BOLD, 15));
-        rightPanel.add(menuLabel, BorderLayout.NORTH);
-
-        // 버튼 3단 쌓기
-        JPanel buttonGrid = new JPanel(new GridLayout(3, 1, 10, 10));
-        JButton memberBtn = new JButton("회원 로그인 (이용권 구매/입실)");
-        JButton guestBtn = new JButton("비회원 이용 (이용권 구매)");
-        JButton exitBtn = new JButton("🚪 퇴실 하기"); 
-
-        memberBtn.setFont(new Font("맑은 고딕", Font.BOLD, 13));
-        guestBtn.setFont(new Font("맑은 고딕", Font.BOLD, 13));
-        exitBtn.setFont(new Font("맑은 고딕", Font.BOLD, 13));
-        exitBtn.setBackground(new Color(245, 245, 245));
-
-        memberBtn.addActionListener(e -> navigator.showLogin(true));
-        guestBtn.addActionListener(e -> navigator.showLogin(false));
-        exitBtn.addActionListener(e -> navigator.showLoginForExit()); 
-
-        buttonGrid.add(memberBtn); 
-        buttonGrid.add(guestBtn);
-        buttonGrid.add(exitBtn);
-
-        rightPanel.add(buttonGrid, BorderLayout.CENTER);
-        
-        add(rightPanel); // 메인 창 오른쪽에 착 장착!
+        //  프로그램이 처음 켜질 때 딱 한 번만 16개의 라벨 주머니를 생성해서 배치합니다.
+        createSeatComponents();
     }
 
-    /**
-     * ⚡ [핵심 연동 장치] SwingNavigator가 메인 화면을 호출할 때 데이터를 던져주면,
-     * 올려준 스크린샷과 100% 똑같은 싱크로율로 미니 바둑판에 색상과 텍스트를 입힙니다!
-     */
-    public void updateUsageStatus(Collection<model.Seat> seats) {
-        if (seats == null || seats.isEmpty()) return;
+    public void setRepository(StudyCafeRepository repository) {
+        this.repository = repository;
+    }
 
-        for (model.Seat seat : seats) {
+   
+    private void createSeatComponents() {
+        seatStatusPanel.removeAll();
+        for (int i = 0; i < 16; i++) {
+            int seatNum = i + 1;
+            JLabel seatLabel = new JLabel("", SwingConstants.CENTER);
+            seatLabel.setOpaque(true);
+            seatLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
+            
+            // 초기 상태는 일단 전부 초록색 빈자리로 세팅
+            seatLabel.setText("<html><center><b>" + seatNum + "번</b><br><font color='gray' size='3'>(빈자리)</font></center></html>");
+            seatLabel.setBackground(new Color(153, 255, 153)); 
+            seatLabel.setForeground(new Color(0, 102, 0));
+            seatLabel.setBorder(BorderFactory.createLineBorder(new Color(0, 153, 51), 1));
+            
+            seatLabels[i] = seatLabel; // 배열에 보관!
+            seatStatusPanel.add(seatLabel);
+        }
+    }
+
+   
+    public void updateUsageStatus(Collection<Seat> seats) {
+        // 데이터가 아직 안 들어왔거나 비어있으면 그냥 패스 (기본 빈자리 상태 유지)
+        if (seats == null || seats.isEmpty()) {
+            return;
+        }
+
+        for (Seat seat : seats) {
             int idx = seat.getSeatNumber() - 1;
             if (idx < 0 || idx >= 16) continue;
+            
+            JLabel seatLabel = seatLabels[idx]; // 보관 중인 라벨 리모컨 꺼내기
+            if (seatLabel == null) continue;
 
-            if (seat.isOccupied()) { 
-                miniSeatButtons[idx].setBackground(new Color(255, 102, 102)); 
-                miniSeatButtons[idx].setText("<html><center><font color='white'><b>" + seat.getSeatNumber() + "번</b><br>[이용 중]</font></center></html>");
+            String timeText = "";
+            
+            if (seat.isOccupied()) {
+                String phone = seat.getAssignedUserPhone();
+                if (phone != null && !phone.isEmpty() && repository != null) {
+                    User user = repository.findUser(phone);
+                    if (user != null) {
+                        if (user.isPeriodActive()) {
+                            timeText = user.getRemainingDays() + "일";
+                        } else {
+                            int totalMinutes = user.getRemainingMinutes();
+                            int hours = totalMinutes / 60;
+                            int mins = totalMinutes % 60;
+                            if (hours > 0) {
+                                timeText = hours + "시" + mins + "분";
+                            } else {
+                                timeText = mins + "분";
+                            }
+                        }
+                    } else {
+                        timeText = "이용중";
+                    }
+                } else {
+                    timeText = "이용중";
+                }
+            }
+
+            // 부서뜨리지 않고, 텍스트와 테두리/배경 컬러만 실시간 스왑(Swap)
+            if (seat.isOccupied()) {
+                seatLabel.setText("<html><center><font color='white'><b>" + seat.getSeatNumber() + "번</b><br><font size='3'>[" + timeText + "]</font></font></center></html>");
+                seatLabel.setBackground(new Color(255, 102, 102)); // 빨간 불
+                seatLabel.setBorder(BorderFactory.createLineBorder(Color.RED, 1));
             } else {
-                miniSeatButtons[idx].setBackground(new Color(102, 255, 102)); 
-                miniSeatButtons[idx].setText("<html><center><b>" + seat.getSeatNumber() + "번</b><br><font color='#555555' size='2'>(빈자리)</font></center></html>");
+                seatLabel.setText("<html><center><b>" + seat.getSeatNumber() + "번</b><br><font color='gray' size='3'>(빈자리)</font></center></html>");
+                seatLabel.setBackground(new Color(153, 255, 153)); // 초록 불
+                seatLabel.setBorder(BorderFactory.createLineBorder(new Color(0, 153, 51), 1));
             }
         }
+        
+        seatStatusPanel.repaint(); 
     }
 }
