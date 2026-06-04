@@ -1,3 +1,11 @@
+package view;
+
+import controller.SeatController;
+import model.Seat;
+import javax.swing.*;
+import java.awt.*;
+import java.util.Collection;
+
 public class SeatSelectionView extends JFrame {
     private final SeatController seatController;
     private final JButton[] seatButtons = new JButton[16];
@@ -25,10 +33,10 @@ public class SeatSelectionView extends JFrame {
 
             if (seat.isOccupied()) { //model파트의 Seat.java 파일에 있는 함수 사용한 겁니다.(isOccupied())
                 seatButtons[idx].setBackground(Color.RED);
-                seatButtons[idx].setText(seat.getSeatNumber() + "번 (사용중)");
+                seatButtons[idx].setText(seat.getSeatNumber() + "번 \n(사용중)");
             } else {
                 seatButtons[idx].setBackground(Color.GREEN);
-                seatButtons[idx].setText(seat.getSeatNumber() + "번 (빈자리)");
+                seatButtons[idx].setText(seat.getSeatNumber() + "번 \n(빈자리)");
             }
         }
     }
