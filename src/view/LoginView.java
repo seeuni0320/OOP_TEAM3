@@ -28,11 +28,18 @@ public class LoginView extends JFrame {
         JButton registerBtn = new JButton("신규등록");
 
         nextBtn.addActionListener(e -> {
+            String phoneNumber = phoneField.getText();
+            
             if (isExitMode) {
-                loginController.loginAsMember(phoneField.getText());
+                // 퇴실 전용 통로
+                loginController.exitAsMember(phoneNumber); 
             } else {
-                if (isMember) loginController.loginAsMember(phoneField.getText());
-                else loginController.loginAsGuest(phoneField.getText());
+                // 일반 로그인 통로
+                if (isMember) {
+                    loginController.loginAsMember(phoneNumber);
+                } else {
+                    loginController.loginAsGuest(phoneNumber);
+                }
             }
         });
 
