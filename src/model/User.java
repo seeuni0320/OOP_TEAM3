@@ -3,102 +3,75 @@ package model;
 public class User {
 
     private String phoneNumber;
-    private boolean hasActiveTicket;
-    private String activeTicketType;
-    private int remainingMinutes;
-    private int remainingDays;
+    private boolean isMember;         // 회원 여부 (비회원 삭제를 위한 기준)
+    private int remainingMinutes;     // 잔여 시간권 (분)
+    private long periodStartTime;     // 정기권 시작 시각 (컴퓨터 밀리초 기준)
+    private long periodEndTime;       // 정기권 종료 시각
 
-    // 신규회원 생성
     public User(String phoneNumber) {
         this.phoneNumber = phoneNumber;
-        this.hasActiveTicket = false;
-        this.activeTicketType = "None";
+        this.isMember = false;        // 기본값: 비회원
         this.remainingMinutes = 0;
-        this.remainingDays = 0;
+        this.periodStartTime = 0;
+        this.periodEndTime = 0;
     }
 
-    // Getter
-    public String getPhoneNumber() {
-        return phoneNumber;
+    // 기본 Getter & Setter
+    public String getPhoneNumber() { return phoneNumber; }
+    
+    public synchronized boolean isMember() { return isMember; }
+    public synchronized void setMember(boolean member) { isMember = member; }
+
+    public synchronized int getRemainingMinutes() { return remainingMinutes; }
+    public synchronized void setRemainingMinutes(int minutes) { this.remainingMinutes = minutes; }
+
+    public synchronized long getPeriodStartTime() { return periodStartTime; }
+    public synchronized void setPeriodStartTime(long time) { this.periodStartTime = time; }
+
+    public synchronized long getPeriodEndTime() { return periodEndTime; }
+    public synchronized void setPeriodEndTime(long time) { this.periodEndTime = time; }
+
+   
+    // 1. 정기권이 지금 유효한가? (현재 시간 < 종료 시간)
+    public synchronized boolean isPeriodActive() {
+        return System.currentTimeMillis() < periodEndTime;
     }
 
-    public boolean isHasActiveTicket() {
-        return hasActiveTicket;
-    }
-
-    public String getActiveTicketType() {
-        return activeTicketType;
-    }
-
-    public synchronized int getRemainingMinutes() {
-        return remainingMinutes;
-    }
-
+    // 2. Controller 화면 표시용: 남은 일수 계산
     public synchronized int getRemainingDays() {
-        return remainingDays;
+        if (!isPeriodActive()) return 0;
+        long diff = periodEndTime - System.currentTimeMillis();
+        // 남은 밀리초를 일(Day)로 변환 후 올림 처리
+        return (int) Math.ceil(diff / (24.0 * 60 * 60 * 1000));
     }
 
-    // 기존 Setter
-    public void setHasActiveTicket(boolean hasActiveTicket) {
-        this.hasActiveTicket = hasActiveTicket;
-    }
+    // 3. 정기권 충전 (기간 연장)
+    public synchronized void activatePeriod(int days) {
+        long now = System.currentTimeMillis();
+        long addedMillis = days * 24L * 60 * 60 * 1000L; // 추가할 기간을 밀리초로 환산
 
-    public void setActiveTicketType(String activeTicketType) {
-        this.activeTicketType = activeTicketType;
-    }
-
-    // [수정 1] Repository 로드용 부수효과 없는 순수 Setter 추가
-    public synchronized void setRemainingMinutes(int remainingMinutes) {
-        this.remainingMinutes = remainingMinutes;
-    }
-
-    public synchronized void setRemainingDays(int remainingDays) {
-        this.remainingDays = remainingDays;
-    }
-
-    // [수정 2] 티켓 상태를 잔여 시간에 따라 자동으로 계산해 주는 메서드
-    private void updateTicketState() {
-        if (this.remainingMinutes > 0 && this.remainingDays > 0) {
-            this.activeTicketType = "Both";
-            this.hasActiveTicket = true;
-        } else if (this.remainingMinutes > 0) {
-            this.activeTicketType = "Time";
-            this.hasActiveTicket = true;
-        } else if (this.remainingDays > 0) {
-            this.activeTicketType = "Period";
-            this.hasActiveTicket = true;
+        if (isPeriodActive()) {
+            this.periodEndTime += addedMillis; // 기존에 쓰던 중이면 만료일만 늘림
         } else {
-            this.activeTicketType = "None";
-            this.hasActiveTicket = false;
+            this.periodStartTime = now;
+            this.periodEndTime = now + addedMillis; // 처음 사거나 만료됐으면 지금부터 시작
         }
     }
 
-    // [수정 3] add 및 sub 메서드에서 덮어쓰기 대신 updateTicketState() 호출
-    // 시간권
+    // 4. 시간권 충전 및 차감
     public synchronized void addRemainingMinutes(int minutes) {
         this.remainingMinutes += minutes;
-        updateTicketState();
     }
 
     public synchronized void subRemainingMinutes(int minutes) {
         this.remainingMinutes -= minutes;
-        if (this.remainingMinutes <= 0) {
+        if (this.remainingMinutes < 0) {
             this.remainingMinutes = 0;
         }
-        updateTicketState(); // 시간이 0이 되어도 기간권이 남아있으면 안 꺼짐
     }
 
-    // 기간권
-    public synchronized void addRemainingDays(int days) {
-        this.remainingDays += days;
-        updateTicketState();
-    }
-
-    public synchronized void subRemainingDays(int days) {
-        this.remainingDays -= days;
-        if (this.remainingDays <= 0) {
-            this.remainingDays = 0;
-        }
-        updateTicketState(); // 일수가 0이 되어도 시간권이 남아있으면 안 꺼짐
+    // 5. 사용 가능한 잔여(정기권 or 시간권)가 있는지 확인
+    public synchronized boolean hasUsableBalance() {
+        return isPeriodActive() || remainingMinutes > 0;
     }
 }
