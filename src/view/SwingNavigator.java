@@ -33,7 +33,9 @@ public class SwingNavigator implements ViewNavigator {
     public SwingNavigator() {
         // 초기화 로직 구조 유지
     }
-
+    public void setRepository(StudyCafeRepository repository) {
+    this.repository = repository;
+}
     // [Main 전용] 프로그램 시작 시 백엔드 컨트롤러들을 한 번에 주입받는 메서드
     public void setControllers(LoginController lc, TicketController tc, PaymentController pc, SeatController sc) {
         this.loginController = lc;
