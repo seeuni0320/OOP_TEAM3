@@ -2,6 +2,7 @@ package view;
 
 import controller.*;
 import model.Seat;
+import model.StudyCafeRepository;
 import model.Ticket;
 import javax.swing.*;
 import java.util.Collection;
@@ -12,9 +13,6 @@ import java.util.List;
  * 프론트엔드의 총사령관 역할을 하는 클래스입니다.
  * 화면 전환(Navigation)을 통제하고, 백엔드 Controller들과 View를 연결합니다.
  */
-
-// viewNavigator를 받아서 진짜 자바 Swing 문법으로 화면을 켜고 끄고 새로고침해주는 코드입니다.
-
 
 public class SwingNavigator implements ViewNavigator {
     // 5개의 화면 객체를 안전하게 관리할 변수
@@ -30,6 +28,8 @@ public class SwingNavigator implements ViewNavigator {
     private PaymentController paymentController;
     private SeatController seatController;
 
+    private StudyCafeRepository repository;
+    
     public SwingNavigator() {
         // 초기화 로직 구조 유지
     }
@@ -44,7 +44,6 @@ public class SwingNavigator implements ViewNavigator {
 
     // 프로그램 최초 실행 시 메인 메뉴를 띄우는 스타트 버튼
     public void showMainMenu() {
-        // 'this'(내비게이터 자신)을 호출.
         if (mainMenuView == null) mainMenuView = new MainMenuView(this); 
         hideAll();
         mainMenuView.setVisible(true);
@@ -56,40 +55,53 @@ public class SwingNavigator implements ViewNavigator {
         JOptionPane.showMessageDialog(null, message);
     }
 
+    // 일반 로그인창 열 때 (맨 끝에 총사령관 'this' 주입!)
     @Override
     public void showLogin(boolean isMember) {
         hideAll();
-        loginView = new LoginView(loginController, isMember);
+        // 💡 고쳐놓은 LoginView 생성자에 맞춰 맨 끝에 'this'를 던져줍니다!
+        loginView = new LoginView(loginController, isMember, false, this); 
+        loginView.setVisible(true);
+    }
+
+    // 퇴실 본인 인증창 열 때 (맨 끝에 총사령관 'this' 주입!)
+    @Override
+    public void showLoginForExit() {
+        hideAll();
+        // 💡 퇴실 모드일 때도 마찬가지로 맨 끝에 'this'를 장착!
+        loginView = new LoginView(loginController, true, true, this); 
         loginView.setVisible(true);
     }
 
     @Override
     public void showOwnedTickets(List<Ticket> usableTickets) {
         hideAll();
-        // 끝에 true를 보내어 [보유 이용권 조회] 모드로 화면을 켭니다.
-        ticketSelectionView = new TicketSelectionView(ticketController, usableTickets, true);
+        // 💡 고쳐놓은 TicketSelectionView 생성자에 맞춰 맨 끝에 'this' 주입!
+        ticketSelectionView = new TicketSelectionView(ticketController, usableTickets, true, this);
         ticketSelectionView.setVisible(true);
     }
 
     @Override
     public void showTicketPurchase(List<Ticket> catalog) {
         hideAll();
-        // 끝에 false를 보내어 [신규 이용권 구매 메뉴판] 모드로 화면을 켭니다.
-        ticketSelectionView = new TicketSelectionView(ticketController, catalog, false);
+        // 💡 신규 구매 메뉴판 모드일 때도 맨 끝에 'this' 주입!
+        ticketSelectionView = new TicketSelectionView(ticketController, catalog, false, this);
         ticketSelectionView.setVisible(true);
     }
 
     @Override
     public void showPayment(Ticket ticket) {
         hideAll();
-        paymentView = new PaymentView(paymentController, ticket);
+        // 💡 고쳐놓은 PaymentView 생성자에 맞춰 맨 끝에 'this' 주입!
+        paymentView = new PaymentView(paymentController, ticket, this);
         paymentView.setVisible(true);
     }
 
     @Override
     public void showSeatSelection(Collection<Seat> seats) {
         hideAll();
-        seatSelectionView = new SeatSelectionView(seatController, seats);
+        // 💡 고쳐놓은 SeatSelectionView 생성자에 맞춰 맨 끝에 'this' 주입!
+        seatSelectionView = new SeatSelectionView(seatController, repository, seats, this);
         seatSelectionView.setVisible(true);
     }
 
@@ -97,7 +109,7 @@ public class SwingNavigator implements ViewNavigator {
     public void refreshSeats(Collection<Seat> seats) {
         // 좌석 화면이 켜져 있는 상태라면, 화면 전체를 껐다 켜지 않고 불빛(데이터)만 실시간 새로고침!
         if (seatSelectionView != null) {
-            seatSelectionView.updateSeatButtons(seats); // 우리가 맞춘 isOccupied() 기반 메서드 호출!
+            seatSelectionView.updateSeatButtons(seats); 
         }
     }
 

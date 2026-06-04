@@ -16,6 +16,8 @@ public interface ViewNavigator {
 
     // 3. 로그인 화면을 띄우는 규칙 (회원/비회원 구분)
     void showLogin(boolean isMember);
+    void showLoginForExit(); //퇴실 
+
 
     // 4. 회원이 보유한 이용권 목록 조회 화면을 띄우는 규칙
     void showOwnedTickets(List<Ticket> usableTickets);
