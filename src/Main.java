@@ -15,20 +15,22 @@ import javax.swing.SwingUtilities;
  * (SeatController → PaymentController → TicketController → LoginController 순으로
  *  뒤 컨트롤러가 앞 컨트롤러를 필요로 한다.)
  *
- * 이미 프로젝트에 Main/진입점이 있으면 이 파일의 "조립 순서"만 참고하세요.
+ * [수정됨]
+ * - PaymentController가 seatLock을 받도록 변경(결제 시 저장을 락으로 보호).
+ * - 종료 훅의 saveData()도 seatLock 안에서 호출(스케줄러 잔여 작업과의 충돌 방지).
  */
 public class Main {
     public static void main(String[] args) {
         StudyCafeRepository repository = new StudyCafeRepository();
         SwingNavigator navigator = new SwingNavigator();
         Session session = new Session();
-        Object seatLock = new Object(); // SeatController와 TimeScheduler가 공유
+        Object seatLock = new Object(); // SeatController / PaymentController / TimeScheduler가 공유
 
         // 의존성 순서대로 조립
         SeatController seatController =
                 new SeatController(repository, navigator, session, seatLock);
         PaymentController paymentController =
-                new PaymentController(repository, navigator, session, seatController);
+                new PaymentController(repository, navigator, session, seatController, seatLock);
         TicketController ticketController =
                 new TicketController(navigator, session, seatController, paymentController);
         LoginController loginController =
@@ -45,7 +47,9 @@ public class Main {
         // 프로그램 종료 시 데이터 저장 + 스케줄러 정리
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             scheduler.stop();
-            repository.saveData();
+            synchronized (seatLock) {
+                repository.saveData();
+            }
         }));
 
         // Swing은 UI 스레드에서 화면을 띄운다
