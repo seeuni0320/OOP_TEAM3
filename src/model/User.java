@@ -1,4 +1,5 @@
 package model;
+
 public class User {
 
     private String phoneNumber;
@@ -7,8 +8,7 @@ public class User {
     private int remainingHours;
     private int remainingDays;
 
-
-    //신규회원 생성
+    // 신규회원 생성
     public User(String phoneNumber) {
         this.phoneNumber = phoneNumber;
         this.hasActiveTicket = false;
@@ -17,8 +17,7 @@ public class User {
         this.remainingDays = 0;
     }
 
-
-    //Getter Setter
+    // Getter
     public String getPhoneNumber() {
         return phoneNumber;
     }
@@ -27,60 +26,79 @@ public class User {
         return hasActiveTicket;
     }
 
-    public void setHasActiveTicket(boolean hasActiveTicket) {
-        this.hasActiveTicket = hasActiveTicket;
-    }
-    
     public String getActiveTicketType() {
         return activeTicketType;
+    }
+
+    public synchronized int getRemainingHours() {
+        return remainingHours;
+    }
+
+    public synchronized int getRemainingDays() {
+        return remainingDays;
+    }
+
+    // 기존 Setter
+    public void setHasActiveTicket(boolean hasActiveTicket) {
+        this.hasActiveTicket = hasActiveTicket;
     }
 
     public void setActiveTicketType(String activeTicketType) {
         this.activeTicketType = activeTicketType;
     }
 
-    //시간권
-    public synchronized int getRemainingHours() {
-        return remainingHours;
+    // [수정 1] Repository 로드용 부수효과 없는 순수 Setter 추가
+    public synchronized void setRemainingHours(int remainingHours) {
+        this.remainingHours = remainingHours;
     }
 
-    //시간 추가
+    public synchronized void setRemainingDays(int remainingDays) {
+        this.remainingDays = remainingDays;
+    }
+
+    // [수정 2] 티켓 상태를 잔여 시간에 따라 자동으로 계산해 주는 메서드
+    private void updateTicketState() {
+        if (this.remainingHours > 0 && this.remainingDays > 0) {
+            this.activeTicketType = "Both";
+            this.hasActiveTicket = true;
+        } else if (this.remainingHours > 0) {
+            this.activeTicketType = "Time";
+            this.hasActiveTicket = true;
+        } else if (this.remainingDays > 0) {
+            this.activeTicketType = "Period";
+            this.hasActiveTicket = true;
+        } else {
+            this.activeTicketType = "None";
+            this.hasActiveTicket = false;
+        }
+    }
+
+    // [수정 3] add 및 sub 메서드에서 덮어쓰기 대신 updateTicketState() 호출
+    // 시간권
     public synchronized void addRemainingHours(int hours) {
         this.remainingHours += hours;
-        this.hasActiveTicket = true;
-        this.activeTicketType = "Time";
-
+        updateTicketState();
     }
 
-    //멀티스레드 시간차감
     public synchronized void subRemainingHours(int hours) {
         this.remainingHours -= hours;
         if (this.remainingHours <= 0) {
             this.remainingHours = 0;
-            this.hasActiveTicket = false;
-            this.activeTicketType = "None";
         }
+        updateTicketState(); // 시간이 0이 되어도 기간권이 남아있으면 안 꺼짐
     }
 
-    //기간권
-    public synchronized int getRemainingDays() {
-        return remainingDays;
-    }
-   //기간권추가
+    // 기간권
     public synchronized void addRemainingDays(int days) {
         this.remainingDays += days;
-        this.hasActiveTicket = true;
-        this.activeTicketType = "Period";
-
+        updateTicketState();
     }
-    //기간차감
+
     public synchronized void subRemainingDays(int days) {
         this.remainingDays -= days;
         if (this.remainingDays <= 0) {
             this.remainingDays = 0;
-            this.hasActiveTicket = false;
-            this.activeTicketType = "None";
         }
+        updateTicketState(); // 일수가 0이 되어도 시간권이 남아있으면 안 꺼짐
     }
-
 }
