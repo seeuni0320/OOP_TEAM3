@@ -19,18 +19,18 @@ import java.util.concurrent.TimeUnit;
  *
  * [모델 적응 메모]
  * - 모델은 남은 시간을 좌석이 아니라 회원(User.remainingHours)에 저장한다.
- *   따라서 좌석의 assignedUserPhone으로 사용자를 찾아 시간을 차감한다.
- * - 모델 단위가 '시간'이므로 한 틱마다 1시간 차감한다(원본의 분 단위 차감에서 변경).
- *   데모 시에는 아래 TICK_UNIT을 SECONDS 등으로 바꿔 빠르게 확인할 수 있다.
- * - 정기권(Period)은 일 단위라 세션 중 자동 차감/퇴실하지 않는다.
+ *   좌석의 assignedUserPhone으로 사용자를 찾아 시간을 차감한다.
+ * - 모델 단위가 '시간'이므로 한 틱마다 1시간 차감한다.
+ *   데모 시 TICK_UNIT을 SECONDS로 바꾸면 빠르게 확인할 수 있다.
  *
- * [동시성 — 수정됨]
- * - 좌석 데이터 변경(차감/퇴실)만 seatLock 안에서 처리한다.
- * - UI 호출(refreshSeats, showPopup)은 절대 락 안에서 하지 않는다.
- *   (예전 코드는 락을 쥔 채 모달 팝업을 띄워, 그 팝업을 처리해야 할 EDT가
- *    같은 락을 기다리며 멈추는 교착이 발생할 수 있었다.)
- * - 만료된 좌석 번호만 락 안에서 모아두고, 락을 빠져나온 뒤 팝업을 띄운다.
- * - UI 스레드 보장은 ViewNavigator 구현체에서 SwingUtilities.invokeLater로 처리한다.
+ * [모델 변경에 맞춘 수정]
+ * - 모델이 시간권+정기권을 동시에 가진 회원의 타입을 "Both"로 표시하게 바뀌었다.
+ *   따라서 타입 문자열("Time")로 판단하지 않고 "남은 시간(remainingHours)이 있으면 차감"한다.
+ *   (정기권만 있는 회원은 remainingHours==0 이라 자동으로 차감 대상에서 빠진다.)
+ * - 자동 퇴실은 "시간도 0이고 정기권 일수도 0일 때"만 한다.
+ *   (시간권이 끝나도 정기권 일수가 남았으면 좌석을 비우지 않는다.)
+ *
+ * [동시성] 좌석 데이터 변경만 seatLock 안에서 처리하고, UI 호출은 락 밖에서 한다(교착 방지).
  */
 public class TimeSchedulerController {
 
@@ -81,11 +81,14 @@ public class TimeSchedulerController {
                         continue;
                     }
 
-                    // 시간권 사용자만 차감 (정기권은 일 단위라 세션 중 자동 차감하지 않음)
-                    if ("Time".equals(user.getActiveTicketType())) {
-                        user.subRemainingHours(HOURS_PER_TICK); // <=0이면 모델이 내부적으로 0/None 처리
+                    // 남은 '시간'이 있는 회원만 차감 (시간권 단독이든 "Both"이든 모두 포함).
+                    // 정기권만 있는 회원은 remainingHours==0 이라 여기서 자연히 제외된다.
+                    if (user.getRemainingHours() > 0) {
+                        user.subRemainingHours(HOURS_PER_TICK);
                         changed = true;
-                        if (user.getRemainingHours() <= 0) {
+
+                        // 시간도 0이고 정기권 일수도 0이면(= 더 이용할 권한이 없으면) 자동 퇴실.
+                        if (user.getRemainingHours() <= 0 && user.getRemainingDays() <= 0) {
                             int seatNumber = seat.getSeatNumber();
                             seat.release(); // 좌석의 사용자 연결(전화번호)도 함께 해제됨
                             expiredSeats.add(seatNumber);
@@ -103,7 +106,6 @@ public class TimeSchedulerController {
                 navigator.showPopup(seatNumber + "번 좌석 이용 시간이 만료되어 자동 퇴실 처리되었습니다.");
             }
         } catch (Exception e) {
-            // 스케줄러 스레드에서 예외가 전파되면 이후 주기가 멈추므로 반드시 잡는다
             e.printStackTrace();
         }
     }

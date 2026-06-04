@@ -139,6 +139,35 @@ public class SeatController {
         }
     }
 
+
+
+    /** 전화번호 기준 퇴실 처리 */
+    public void checkoutByPhone(String phone) {
+        String message;
+        boolean shouldReturnMain = true;
+
+        synchronized (seatLock) {
+            Seat current = findSeatByUserPhone(phone);
+
+            if (current == null) {
+                message = "현재 이용 중인 좌석이 없습니다.";
+            } else {
+                int seatNumber = current.getSeatNumber();
+                current.release();
+                repository.saveData();
+                message = seatNumber + "번 좌석 퇴실이 완료되었습니다.";
+            }
+        }
+
+        navigator.refreshSeats(repository.getSeatList());
+        navigator.showPopup(message);
+
+        if (shouldReturnMain) {
+            session.clear();
+            navigator.showMainMenu();
+        }
+    }
+
     /** 좌석 번호로 좌석 찾기 (repository.findSeat 대체) */
     private Seat findSeat(int seatNumber) {
         for (Seat s : repository.getSeatList()) {
