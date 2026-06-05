@@ -104,7 +104,7 @@ public class MainMenuView extends JFrame {
                             int hours = totalMinutes / 60;
                             int mins = totalMinutes % 60;
                             if (hours > 0) {
-                                timeText = hours + "시" + mins + "분";
+                                timeText = hours + "시간" + mins + "분";
                             } else {
                                 timeText = mins + "분";
                             }

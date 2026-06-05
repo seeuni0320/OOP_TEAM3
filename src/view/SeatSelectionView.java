@@ -82,13 +82,17 @@ public class SeatSelectionView extends JFrame {
                 if (phone != null && !phone.isEmpty() && repository != null) {
                     User user = repository.findUser(phone);
                     if (user != null) {
-                        int minutes = user.getRemainingMinutes();
-                        int days = user.getRemainingDays();
-                        
-                        if (days > 0) {
-                            timeText = days + "일 남음";
+                        if (user.isPeriodActive()) {
+                            timeText = user.getRemainingDays() + "일";
                         } else {
-                            timeText = minutes + "시간 남음";
+                            int totalMinutes = user.getRemainingMinutes();
+                            int hours = totalMinutes / 60;
+                            int mins = totalMinutes % 60;
+                            if (hours > 0) {
+                                timeText = hours + "시간" + mins + "분";
+                            } else {
+                                timeText = mins + "분";
+                            }
                         }
                     } else {
                         timeText = "이용 중"; 
