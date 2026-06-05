@@ -5,6 +5,7 @@ import model.StudyCafeRepository;
 import model.User;
 import view.ViewNavigator;
 
+import javax.swing.SwingUtilities;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -18,6 +19,11 @@ import java.util.concurrent.TimeUnit;
  *   2) 정기권이 없거나 만료됐다면 → 시간권(분)을 차감.
  *   3) 정기권도 만료되고 분도 0이면 → 자동 퇴실.
  * 즉 "정기권 우선, 그 다음 시간권" 으로 일관되게 소비한다.
+ *
+ * 추가:
+ *  - 사용자 레코드가 없는 '고아 좌석'은 자동으로 풀어준다.
+ *  - 화면 갱신/팝업은 EDT(SwingUtilities.invokeLater)에서 수행한다.
+ *    (스케줄러 스레드에서 Swing 컴포넌트를 직접 건드리지 않기 위함)
  */
 public class TimeSchedulerController {
 
@@ -27,7 +33,7 @@ public class TimeSchedulerController {
 
     private ScheduledExecutorService scheduler;
 
-    private static final long TICK_PERIOD = 1;
+    private static final long TICK_PERIOD = 60;
     private static final TimeUnit TICK_UNIT = TimeUnit.SECONDS;
     private static final int MINUTES_PER_TICK = 1;
 
@@ -56,7 +62,13 @@ public class TimeSchedulerController {
                     if (!seat.isOccupied()) continue;
 
                     User user = repository.findUser(seat.getAssignedUserPhone());
-                    if (user == null) continue;
+
+                    // 0) 사용자 레코드가 없는 고아 좌석 → 시간 추적 불가이므로 자동 정리
+                    if (user == null) {
+                        seat.release();
+                        changed = true;
+                        continue;
+                    }
 
                     // 1) 정기권 유효기간 내면 분 차감/만료 없이 유지
                     if (user.isPeriodActive()) {
@@ -80,10 +92,14 @@ public class TimeSchedulerController {
                 if (changed) repository.saveData();
             }
 
-            navigator.refreshSeats(repository.getSeatList());
-            for (int seatNumber : expiredSeats) {
-                navigator.showPopup(seatNumber + "번 좌석 이용 시간이 만료되어 자동 퇴실 처리되었습니다.");
-            }
+            // UI 갱신/팝업은 반드시 EDT에서 수행한다.
+            final List<Integer> expiredForUi = expiredSeats;
+            SwingUtilities.invokeLater(() -> {
+                navigator.refreshSeats(repository.getSeatList());
+                for (int seatNumber : expiredForUi) {
+                    navigator.showPopup(seatNumber + "번 좌석 이용 시간이 만료되어 자동 퇴실 처리되었습니다.");
+                }
+            });
         } catch (Exception e) {
             e.printStackTrace();
         }

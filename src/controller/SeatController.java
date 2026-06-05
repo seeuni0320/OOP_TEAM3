@@ -100,6 +100,8 @@ public class SeatController {
                 message = "잔여 이용권이 없습니다. 이용권을 먼저 구매해 주세요.";
             } else {
                 seat.occupy(user.getPhoneNumber());
+                // 비회원이 로그인~착석 사이에 자동 삭제로 빠졌을 수 있으므로 다시 등록
+                repository.saveUser(user);
                 repository.saveData();
                 message = seat.getSeatNumber() + "번 좌석 이용을 시작합니다.";
                 started = true;
@@ -123,6 +125,17 @@ public class SeatController {
             } else {
                 int seatNumber = current.getSeatNumber();
                 current.release();
+
+                // 비회원은 퇴실 시 잔여 시간과 무관하게 정보를 정리한다.
+                // 잔여를 0으로 만들면 saveData()의 (동기화된) 비회원 자동 삭제가 처리한다.
+                // 회원은 건드리지 않으므로 잔여 시간을 그대로 유지한다.
+                User user = repository.findUser(phone);
+                if (user != null && !user.isMember()) {
+                    user.setRemainingMinutes(0);
+                    user.setPeriodStartTime(0);
+                    user.setPeriodEndTime(0);
+                }
+
                 repository.saveData();
                 message = seatNumber + "번 좌석 퇴실이 완료되었습니다.";
             }

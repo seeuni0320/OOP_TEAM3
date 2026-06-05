@@ -81,14 +81,17 @@ public class TicketController {
         return list;
     }
 
-    /** 판매 카탈로그. 정기권은 회원(isMember)만 노출. */
+    /**
+     * 판매 카탈로그. 정기권은 '회원 입구로 들어온 회원'에게만 노출한다.
+     * 회원 번호라도 '비회원 이용' 입구로 들어온 세션(session.isGuest()=true)에는 정기권을 노출하지 않는다.
+     */
     private List<Ticket> getTicketCatalog() {
         List<Ticket> catalog = new ArrayList<>();
         catalog.add(new TimeTicket("2시간권", 4000, 2, 0));
         catalog.add(new TimeTicket("4시간권", 7000, 4, 0));
 
         User user = session.getUser();
-        if (user != null && user.isMember()) {
+        if (user != null && user.isMember() && !session.isGuest()) {
             catalog.add(new PeriodTicket("정기권(30일)", 99000, 30));
         }
         return catalog;

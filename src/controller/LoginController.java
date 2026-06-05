@@ -54,11 +54,17 @@ public class LoginController {
         enterAsMember(user);
     }
 
-    /** 회원 신규등록: 회원 자격(isMember=true)을 영속적으로 부여한다. */
+    /**
+     * 회원 신규등록: 회원 자격(isMember=true)만 영속적으로 부여한다.
+     * 진입(이용권/좌석 화면)은 호출 측(LoginView)이 이어서 부르는 loginAsMember가 단 한 번만 처리한다.
+     *
+     * 잘못된 번호 안내도 여기서는 띄우지 않는다. LoginView가 registerMember 직후
+     * loginAsMember를 부르므로, 형식 오류 팝업은 loginAsMember가 한 번만 띄우게 해서
+     * 동일 팝업이 두 번 뜨는 것을 막는다.
+     */
     public void registerMember(String phoneNumber) {
         if (!isValidPhone(phoneNumber)) {
-            navigator.showPopup("전화번호 형식이 올바르지 않습니다.");
-            return;
+            return; // 안내는 뒤이어 호출되는 loginAsMember가 담당 (중복 팝업 방지)
         }
         String phone = normalize(phoneNumber);
 
@@ -70,8 +76,7 @@ public class LoginController {
                 repository.saveData();
             }
             navigator.showPopup("이미 등록된 번호입니다. 회원으로 로그인합니다.");
-            enterAsMember(existing);
-            return;
+            return; // 진입은 뒤이어 호출되는 loginAsMember가 담당 (중복 진입 방지)
         }
 
         User member = new User(phone);
@@ -79,7 +84,7 @@ public class LoginController {
         repository.saveUser(member);
         repository.saveData();
         navigator.showPopup("회원 등록이 완료되었습니다.");
-        enterAsMember(member);
+        // 진입은 뒤이어 호출되는 loginAsMember가 담당 (중복 진입 방지)
     }
 
     /** 회원 진입 공통 처리 (로그인/등록이 공유) */
@@ -114,7 +119,9 @@ public class LoginController {
 
         session.clear();
         session.setUser(guest);
-        session.setGuest(!guest.isMember());
+        // 비회원 입구로 들어온 세션은 항상 게스트 모드로 취급한다.
+        // (회원 번호로 이 입구를 타도 이번 세션에서는 정기권을 노출하지 않기 위함)
+        session.setGuest(true);
 
         Seat occupied = findOccupiedSeatByPhone(phone);
         if (occupied != null) {
@@ -154,6 +161,17 @@ public class LoginController {
         }
         int seatNumber = occupied.getSeatNumber();
         occupied.release();
+
+        // 비회원은 퇴실 시 잔여 시간과 무관하게 정보를 정리한다.
+        // 잔여를 0으로 만들면 saveData()의 비회원 자동 삭제가 처리한다.
+        // 회원은 건드리지 않으므로 잔여 시간을 그대로 유지한다.
+        User user = repository.findUser(phone);
+        if (user != null && !user.isMember()) {
+            user.setRemainingMinutes(0);
+            user.setPeriodStartTime(0);
+            user.setPeriodEndTime(0);
+        }
+
         repository.saveData();
         session.clear();
         navigator.showPopup(seatNumber + "번 좌석 퇴실이 완료되었습니다.");

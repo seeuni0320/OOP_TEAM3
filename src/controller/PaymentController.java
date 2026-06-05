@@ -54,6 +54,10 @@ public class PaymentController {
                     // 정기권: 보유 만료 시각을 days만큼 연장 (만료 시각 기반)
                     user.activatePeriod(((PeriodTicket) ticket).getAddDays());
                 }
+                // 비회원은 로그인~결제 사이에 saveData()의 자동 정리 로직으로
+                // userMap에서 빠졌을 수 있다. 저장 전에 현재 사용자를 다시 등록해
+                // '좌석은 점유됐는데 User가 없어 사용중으로만 표시'되는 문제를 막는다.
+                repository.saveUser(user);
                 repository.saveData();
             }
         }
