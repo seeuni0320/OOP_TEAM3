@@ -10,6 +10,12 @@ import view.ViewNavigator;
  * - 회원 로그인 / 회원 신규등록 / 비회원 이용 / 퇴실 본인 인증을 처리한다.
  * - 회원/비회원은 이제 User.isMember()라는 '영속 속성'으로 구분한다.
  *   (잔여 시간이 0이 되어도 회원 자격은 사라지지 않는다.)
+ *
+ * [중요] LoginView는 컨트롤러 호출 직후 자기 자신을 dispose()로 닫는다.
+ *        로그인 창을 열 때 메인 화면도 이미 hideAll()로 숨겨진 상태이므로,
+ *        여기서 팝업만 띄우고 그냥 return하면 '보이는 창이 하나도 없는' 상태가 되어
+ *        프로그램이 종료된 것처럼 보인다.
+ *        따라서 진입에 실패하는 모든 분기에서는 navigator.showMainMenu()로 복귀시킨다.
  */
 public class LoginController {
 
@@ -42,6 +48,7 @@ public class LoginController {
     public void loginAsMember(String phoneNumber) {
         if (!isValidPhone(phoneNumber)) {
             navigator.showPopup("전화번호 형식이 올바르지 않습니다.");
+            navigator.showMainMenu(); // 빈 화면 방지: 메인으로 복귀
             return;
         }
         String phone = normalize(phoneNumber);
@@ -49,6 +56,7 @@ public class LoginController {
         User user = repository.findUser(phone);
         if (user == null) {
             navigator.showPopup("등록된 회원 정보가 없습니다.\n'신규등록'으로 회원 가입하거나 비회원으로 이용해 주세요.");
+            navigator.showMainMenu(); // 빈 화면 방지: 메인으로 복귀
             return;
         }
         enterAsMember(user);
@@ -59,12 +67,12 @@ public class LoginController {
      * 진입(이용권/좌석 화면)은 호출 측(LoginView)이 이어서 부르는 loginAsMember가 단 한 번만 처리한다.
      *
      * 잘못된 번호 안내도 여기서는 띄우지 않는다. LoginView가 registerMember 직후
-     * loginAsMember를 부르므로, 형식 오류 팝업은 loginAsMember가 한 번만 띄우게 해서
+     * loginAsMember를 부르므로, 형식 오류 팝업/복귀 처리는 loginAsMember가 한 번만 하게 해서
      * 동일 팝업이 두 번 뜨는 것을 막는다.
      */
     public void registerMember(String phoneNumber) {
         if (!isValidPhone(phoneNumber)) {
-            return; // 안내는 뒤이어 호출되는 loginAsMember가 담당 (중복 팝업 방지)
+            return; // 안내/복귀는 뒤이어 호출되는 loginAsMember가 담당 (중복 팝업 방지)
         }
         String phone = normalize(phoneNumber);
 
@@ -107,6 +115,7 @@ public class LoginController {
     public void loginAsGuest(String phoneNumber) {
         if (!isValidPhone(phoneNumber)) {
             navigator.showPopup("전화번호 형식이 올바르지 않습니다.");
+            navigator.showMainMenu(); // 빈 화면 방지: 메인으로 복귀
             return;
         }
         String phone = normalize(phoneNumber);
@@ -141,6 +150,7 @@ public class LoginController {
     public void checkout(String phoneNumber) {
         if (!isValidPhone(phoneNumber)) {
             navigator.showPopup("전화번호 형식이 올바르지 않습니다.");
+            navigator.showMainMenu(); // 빈 화면 방지: 메인으로 복귀
             return;
         }
         String phone = normalize(phoneNumber);
