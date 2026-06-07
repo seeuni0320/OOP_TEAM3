@@ -14,11 +14,13 @@ import view.ViewNavigator;
  */
 public class PaymentController {
 
-    private final StudyCafeRepository repository;
-    private final ViewNavigator navigator;
-    private final Session session;
-    private final SeatController seatController;
-    private final Object seatLock;
+    // ========== 인자 5개 입력 (필드 + 생성자) ==========
+
+    private final StudyCafeRepository repository; // 창고(데이터)
+    private final ViewNavigator navigator;         // 화면 전환 리모컨
+    private final Session session;                 // 현재 손님 정보 보관소
+    private final SeatController seatController;    // 결제 후 좌석 선택 화면으로 넘기기 위해 필요
+    private final Object seatLock;                 // 동시 접근을 막는 자물쇠
 
     public PaymentController(StudyCafeRepository repository,
                              ViewNavigator navigator,
@@ -32,44 +34,25 @@ public class PaymentController {
         this.seatLock = seatLock;
     }
 
-    public void pay(Ticket ticket, int paidAmount) {
-        if (ticket == null) {
-            navigator.showPopup("선택된 이용권이 없습니다.");
-            return;
-        }
-        if (paidAmount < ticket.getPrice()) {
-            navigator.showPopup("결제 금액이 부족합니다. (가격: " + ticket.getPrice() + "원)");
-            return;
-        }
+    // ========== 결제 ==========
 
-        int change = paidAmount - ticket.getPrice();
-
-        User user = session.getUser();
-        if (user != null) {
-            synchronized (seatLock) {
-                if (ticket instanceof TimeTicket) {
-                    TimeTicket t = (TimeTicket) ticket;
-                    user.addRemainingMinutes(t.getAddHours() * 60 + t.getAddMinutes());
-                } else if (ticket instanceof PeriodTicket) {
-                    // 정기권: 보유 만료 시각을 days만큼 연장 (만료 시각 기반)
-                    user.activatePeriod(((PeriodTicket) ticket).getAddDays());
+    public void pay(Ticket ticket, int paidAmount) {//paidAmount는 실제 결제가 가능한 환경에서 사용
+        User user = session.getUser();                         // 현재 손님 꺼내기
+        if (user != null) {                                    // 손님이 있으면
+            synchronized (seatLock) {                          // 자물쇠 잠그고(데이터 건드림)
+                if (ticket instanceof TimeTicket) {            // 이용권이 시간권이면
+                    TimeTicket t = (TimeTicket) ticket;        // 시간권 타입으로 변환
+                    user.addRemainingMinutes(t.getAddHours() * 60 + t.getAddMinutes()); // 시간→분 적립
+                } else if (ticket instanceof PeriodTicket) {   // 정기권이면
+                    user.activatePeriod(((PeriodTicket) ticket).getAddDays()); // 만료일을 일수만큼 연장
                 }
-                // 비회원은 로그인~결제 사이에 saveData()의 자동 정리 로직으로
-                // userMap에서 빠졌을 수 있다. 저장 전에 현재 사용자를 다시 등록해
-                // '좌석은 점유됐는데 User가 없어 사용중으로만 표시'되는 문제를 막는다.
-                repository.saveUser(user);
-                repository.saveData();
+                repository.saveUser(user);                     // 비회원 자동삭제 대비해 다시 등록
+                repository.saveData();                         // 변경 저장
             }
         }
 
-        session.setSelectedTicket(ticket);
-
-        if (change > 0) {
-            navigator.showPopup("결제가 완료되었습니다. 거스름돈: " + change + "원");
-        } else {
-            navigator.showPopup("결제가 완료되었습니다.");
-        }
-
-        seatController.openSeatSelection();
+        session.setSelectedTicket(ticket);                     // 결제한 이용권 기록
+        navigator.showPopup("결제가 완료되었습니다.");             // 결제 완료 안내
+        seatController.openSeatSelection();                    // 좌석 선택 화면으로 넘김
     }
 }

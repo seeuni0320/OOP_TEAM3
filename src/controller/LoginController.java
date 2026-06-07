@@ -8,29 +8,22 @@ import view.ViewNavigator;
 /**
  * LoginController
  * - 회원 로그인 / 회원 신규등록 / 비회원 이용 / 퇴실 본인 인증을 처리한다.
- * - 회원/비회원은 이제 User.isMember()라는 '영속 속성'으로 구분한다.
+ * - 회원/비회원은 User.isMember()라는 '영속 속성'으로 구분한다.
  *   (잔여 시간이 0이 되어도 회원 자격은 사라지지 않는다.)
  *
  * [중요] LoginView는 컨트롤러 호출 직후 자기 자신을 dispose()로 닫는다.
- *        로그인 창을 열 때 메인 화면도 이미 hideAll()로 숨겨진 상태이므로,
- *        여기서 팝업만 띄우고 그냥 return하면 '보이는 창이 하나도 없는' 상태가 되어
- *        프로그램이 종료된 것처럼 보인다.
- *        따라서 진입에 실패하는 모든 분기에서는 navigator.showMainMenu()로 복귀시킨다.
+ *        진입에 실패하는 모든 분기에서는 navigator.showMainMenu()로 복귀시켜
+ *        '보이는 창이 하나도 없는' 상태(프로그램이 꺼진 것처럼 보임)를 막는다.
  */
 public class LoginController {
 
-    private final StudyCafeRepository repository;
-    private final ViewNavigator navigator;
-    private final Session session;
-    private final TicketController ticketController;
-    private final SeatController seatController;
+    // ========== 인자 5개 입력 (필드 + 생성자) ==========
 
-    public LoginController(StudyCafeRepository repository,
-                           ViewNavigator navigator,
-                           Session session,
-                           TicketController ticketController) {
-        this(repository, navigator, session, ticketController, null);
-    }
+    private final StudyCafeRepository repository;   // 창고(회원·좌석 데이터)
+    private final ViewNavigator navigator;           // 화면 전환 리모컨
+    private final Session session;                   // 현재 손님 정보 보관소
+    private final TicketController ticketController;  // 로그인 후 이용권 단계로 넘기기 위해 필요
+    private final SeatController seatController;      // 퇴실 처리를 맡기기 위해 필요
 
     public LoginController(StudyCafeRepository repository,
                            ViewNavigator navigator,
@@ -44,13 +37,44 @@ public class LoginController {
         this.seatController = seatController;
     }
 
+    // ========== 도구 (보조 메서드) ==========
+
+    /** 번호 형식이 맞으면 true. 틀리면 안내 팝업 + 메인 복귀 후 false. */
+    private boolean checkPhone(String phoneNumber) {
+        if (isValidPhone(phoneNumber)) return true;
+        navigator.showPopup("전화번호 형식이 올바르지 않습니다.");
+        navigator.showMainMenu(); // 빈 화면 방지: 메인으로 복귀
+        return false;
+    }
+
+    /** 입력된 번호가 앉아 있는 좌석 찾기 (없으면 null) */
+    private Seat findOccupiedSeatByPhone(String phone) {
+        if (phone == null) return null;
+        for (Seat s : repository.getSeatList()) {
+            if (s.isOccupied() && phone.equals(s.getAssignedUserPhone())) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    /** 전화번호에서 숫자만 남기기 (예: 010-1234-5678 → 01012345678) */
+    private String normalize(String phone) {
+        return phone == null ? null : phone.replaceAll("[^0-9]", "");
+    }
+
+    /** 전화번호 형식 검사 (01로 시작 + 총 10~11자리면 true) */
+    private boolean isValidPhone(String phone) {
+        if (phone == null) return false;
+        String digits = phone.replaceAll("[^0-9]", "");
+        return digits.matches("01[0-9]{8,9}");
+    }
+
+    // ========== 회원 ==========
+
     /** 회원 로그인: 이미 등록된 회원만 진입한다. */
     public void loginAsMember(String phoneNumber) {
-        if (!isValidPhone(phoneNumber)) {
-            navigator.showPopup("전화번호 형식이 올바르지 않습니다.");
-            navigator.showMainMenu(); // 빈 화면 방지: 메인으로 복귀
-            return;
-        }
+        if (!checkPhone(phoneNumber)) return;
         String phone = normalize(phoneNumber);
 
         User user = repository.findUser(phone);
@@ -64,11 +88,8 @@ public class LoginController {
 
     /**
      * 회원 신규등록: 회원 자격(isMember=true)만 영속적으로 부여한다.
-     * 진입(이용권/좌석 화면)은 호출 측(LoginView)이 이어서 부르는 loginAsMember가 단 한 번만 처리한다.
-     *
-     * 잘못된 번호 안내도 여기서는 띄우지 않는다. LoginView가 registerMember 직후
-     * loginAsMember를 부르므로, 형식 오류 팝업/복귀 처리는 loginAsMember가 한 번만 하게 해서
-     * 동일 팝업이 두 번 뜨는 것을 막는다.
+     * 진입(이용권/좌석 화면)은 LoginView가 이어서 부르는 loginAsMember가 단 한 번만 처리한다.
+     * 형식 오류 안내도 여기서는 띄우지 않는다(loginAsMember가 한 번만 하게 해서 중복 팝업 방지).
      */
     public void registerMember(String phoneNumber) {
         if (!isValidPhone(phoneNumber)) {
@@ -78,12 +99,15 @@ public class LoginController {
 
         User existing = repository.findUser(phone);
         if (existing != null) {
-            // 이미 비회원으로 쓰던 번호면 회원으로 승격
             if (!existing.isMember()) {
+                // 비회원으로 쓰다가 신규 가입 시 회원으로 승격
                 existing.setMember(true);
                 repository.saveData();
+                navigator.showPopup("비회원으로 이용하시던 번호를 회원으로 전환했습니다.");
+            } else {
+                // 이미 회원인 번호
+                navigator.showPopup("이미 등록된 회원입니다. 회원으로 로그인합니다.");
             }
-            navigator.showPopup("이미 등록된 번호입니다. 회원으로 로그인합니다.");
             return; // 진입은 뒤이어 호출되는 loginAsMember가 담당 (중복 진입 방지)
         }
 
@@ -111,13 +135,11 @@ public class LoginController {
         ticketController.handleMemberLogin(user);
     }
 
+    // ========== 비회원 ==========
+
     /** 비회원 이용: 회원 자격은 부여하지 않는다. */
     public void loginAsGuest(String phoneNumber) {
-        if (!isValidPhone(phoneNumber)) {
-            navigator.showPopup("전화번호 형식이 올바르지 않습니다.");
-            navigator.showMainMenu(); // 빈 화면 방지: 메인으로 복귀
-            return;
-        }
+        if (!checkPhone(phoneNumber)) return;
         String phone = normalize(phoneNumber);
 
         User guest = repository.findUser(phone);
@@ -141,6 +163,8 @@ public class LoginController {
         ticketController.showPurchase();
     }
 
+    // ========== 퇴실 ==========
+
     /** 퇴실 본인 인증 (LoginView 퇴실 모드 전용 진입점) */
     public void exitAsMember(String phoneNumber) {
         checkout(phoneNumber);
@@ -148,63 +172,7 @@ public class LoginController {
 
     /** 퇴실 처리: 실제 좌석 해제는 SeatController에 맡긴다. */
     public void checkout(String phoneNumber) {
-        if (!isValidPhone(phoneNumber)) {
-            navigator.showPopup("전화번호 형식이 올바르지 않습니다.");
-            navigator.showMainMenu(); // 빈 화면 방지: 메인으로 복귀
-            return;
-        }
-        String phone = normalize(phoneNumber);
-
-        if (seatController != null) {
-            seatController.checkoutByPhone(phone);
-        } else {
-            checkoutWithoutSeatController(phone);
-        }
-    }
-
-    private void checkoutWithoutSeatController(String phone) {
-        Seat occupied = findOccupiedSeatByPhone(phone);
-        if (occupied == null) {
-            navigator.showPopup("현재 이용 중인 좌석이 없습니다.");
-            navigator.showMainMenu();
-            return;
-        }
-        int seatNumber = occupied.getSeatNumber();
-        occupied.release();
-
-        // 비회원은 퇴실 시 잔여 시간과 무관하게 정보를 정리한다.
-        // 잔여를 0으로 만들면 saveData()의 비회원 자동 삭제가 처리한다.
-        // 회원은 건드리지 않으므로 잔여 시간을 그대로 유지한다.
-        User user = repository.findUser(phone);
-        if (user != null && !user.isMember()) {
-            user.setRemainingMinutes(0);
-            user.setPeriodStartTime(0);
-            user.setPeriodEndTime(0);
-        }
-
-        repository.saveData();
-        session.clear();
-        navigator.showPopup(seatNumber + "번 좌석 퇴실이 완료되었습니다.");
-        navigator.showMainMenu();
-    }
-
-    private Seat findOccupiedSeatByPhone(String phone) {
-        if (phone == null) return null;
-        for (Seat s : repository.getSeatList()) {
-            if (s.isOccupied() && phone.equals(s.getAssignedUserPhone())) {
-                return s;
-            }
-        }
-        return null;
-    }
-
-    private String normalize(String phone) {
-        return phone == null ? null : phone.replaceAll("[^0-9]", "");
-    }
-
-    private boolean isValidPhone(String phone) {
-        if (phone == null) return false;
-        String digits = phone.replaceAll("[^0-9]", "");
-        return digits.matches("01[0-9]{8,9}");
+        if (!checkPhone(phoneNumber)) return;
+        seatController.checkoutByPhone(normalize(phoneNumber));
     }
 }

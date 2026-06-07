@@ -9,28 +9,20 @@ import view.ViewNavigator;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * TicketController
- * - 보유 이용권(분/정기권 유효기간)이 있으면 결제를 생략하고 좌석 선택으로.
- * - 정기권(기간권)은 '회원(isMember)'만 구매 가능.
- */
 public class TicketController {
 
-    private final ViewNavigator navigator;
-    private final Session session;
-    private final SeatController seatController;
-    private final PaymentController paymentController;
+    private final ViewNavigator navigator;       // 화면 전환
+    private final Session session;               // 손님 상태 보관
+    private final SeatController seatController;  // 좌석 화면으로 넘길 때
 
-    public TicketController(ViewNavigator navigator,
-                            Session session,
-                            SeatController seatController,
-                            PaymentController paymentController) {
+    public TicketController(ViewNavigator navigator, Session session,
+                            SeatController seatController) {
         this.navigator = navigator;
         this.session = session;
         this.seatController = seatController;
-        this.paymentController = paymentController;
     }
 
+    // 회원 로그인 직후: 보유 이용권 있으면 목록, 없으면 구매 화면
     public void handleMemberLogin(User user) {
         List<Ticket> owned = getOwnedTickets(user);
         if (!owned.isEmpty()) {
@@ -40,10 +32,12 @@ public class TicketController {
         }
     }
 
+    // 구매 화면 띄우기
     public void showPurchase() {
         navigator.showTicketPurchase(getTicketCatalog());
     }
 
+    // 보유 이용권 선택: 결제 없이 좌석 선택으로
     public void selectOwnedTicket(Ticket ticket) {
         if (ticket == null) {
             navigator.showPopup("사용할 수 없는 이용권입니다.");
@@ -53,6 +47,7 @@ public class TicketController {
         seatController.openSeatSelection();
     }
 
+    // 구매할 이용권 선택: 결제 화면으로
     public void selectTicketToPurchase(Ticket ticket) {
         if (ticket == null) {
             navigator.showPopup("이용권을 선택해 주세요.");
@@ -62,12 +57,12 @@ public class TicketController {
         navigator.showPayment(ticket);
     }
 
-    /** 회원의 현재 보유 잔여를 표시용 Ticket으로 합성 */
+    // 회원이 가진 잔여를 화면용 Ticket 목록으로 만든다 (가격 0)
     private List<Ticket> getOwnedTickets(User user) {
         List<Ticket> list = new ArrayList<>();
 
         int minutes = user.getRemainingMinutes();
-        if (minutes > 0) {
+        if (minutes > 0) {                             // 시간권 잔여
             int h = minutes / 60;
             int m = minutes % 60;
             String label = (h > 0)
@@ -75,16 +70,13 @@ public class TicketController {
                     : "시간권 (잔여 " + m + "분)";
             list.add(new Ticket(label, 0));
         }
-        if (user.isPeriodActive()) {
+        if (user.isPeriodActive()) {                   // 정기권 잔여
             list.add(new Ticket("정기권 (잔여 " + user.getRemainingDays() + "일)", 0));
         }
         return list;
     }
 
-    /**
-     * 판매 카탈로그. 정기권은 '회원 입구로 들어온 회원'에게만 노출한다.
-     * 회원 번호라도 '비회원 이용' 입구로 들어온 세션(session.isGuest()=true)에는 정기권을 노출하지 않는다.
-     */
+    // 판매 목록. 정기권은 회원(게스트 모드 아님)에게만 노출
     private List<Ticket> getTicketCatalog() {
         List<Ticket> catalog = new ArrayList<>();
         catalog.add(new TimeTicket("2시간권", 4000, 2, 0));
